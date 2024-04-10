@@ -1,0 +1,2 @@
+shell_command:
+  prusaconnect: /bin/bash /configuration/scripts/prusaconnect.sh
