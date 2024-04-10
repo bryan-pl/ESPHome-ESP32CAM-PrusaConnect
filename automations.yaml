@@ -1,0 +1,16 @@
+- id: '1712573916886'
+  alias: PrusaConnectSnapshot
+  description: Upload of screenshot to PrusaConnect every 30s if printer is powered
+  trigger:
+  - platform: time_pattern
+    seconds: /30
+  condition:
+  - condition: device 
+    type: is_on
+    device_id: 0991a54522bfd2c63acd1b90b2bf8287
+    entity_id: 683f55a08f1ed32b03f672b091a94ee5
+    domain: switch
+  action:
+  - service: shell_command.prusaconnect
+    data: {}
+  mode: single
