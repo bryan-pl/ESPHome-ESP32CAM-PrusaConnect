@@ -1,1 +1,149 @@
+substitutions:
+  name: "esp32cam01"
+  friendly_name: ESP32CAM01
+
+esphome:
+  name: ${name}
+  friendly_name: ${friendly_name}
+  name_add_mac_suffix: false
+  project:
+    name: esphome.web
+    version: '1.0'
+
+esp32:
+  board: esp32dev
+  framework:
+    type: arduino
+
+# Enable logging
+logger:
+
+# Enable Home Assistant API
+api:
+  encryption:
+    key: !secret esp32cam01_api_key
+  services:  # change camera parameters on-the-fly
+  - service: camera_set_param
+    variables:
+      name: string
+      value: int
+    then:
+      - lambda: |-
+          bool state_return = false;
+          if (("contrast" == name) && (value >= -2) && (value <= 2)) { id(esp32cam01_id).set_contrast(value); state_return = true; }
+          if (("brightness" == name) && (value >= -2) && (value <= 2)) { id(esp32cam01_id).set_brightness(value); state_return = true; }
+          if (("saturation" == name) && (value >= -2) && (value <= 2)) { id(esp32cam01_id).set_saturation(value); state_return = true; }
+          if (("special_effect" == name) && (value >= 0U) && (value <= 6U)) { id(esp32cam01_id).set_special_effect((esphome::esp32_camera::ESP32SpecialEffect)value); state_return = true; }
+          if (("aec_mode" == name) && (value >= 0U) && (value <= 1U)) { id(esp32cam01_id).set_aec_mode((esphome::esp32_camera::ESP32GainControlMode)value); state_return = true; }
+          if (("aec2" == name) && (value >= 0U) && (value <= 1U)) { id(esp32cam01_id).set_aec2(value); state_return = true; }
+          if (("ae_level" == name) && (value >= -2) && (value <= 2)) { id(esp32cam01_id).set_ae_level(value); state_return = true; }
+          if (("aec_value" == name) && (value >= 0U) && (value <= 1200U)) { id(esp32cam01_id).set_aec_value(value); state_return = true; }
+          if (("agc_mode" == name) && (value >= 0U) && (value <= 1U)) { id(esp32cam01_id).set_agc_mode((esphome::esp32_camera::ESP32GainControlMode)value); state_return = true; }
+          if (("agc_value" == name) && (value >= 0U) && (value <= 30U)) { id(esp32cam01_id).set_agc_value(value); state_return = true; }
+          if (("agc_gain_ceiling" == name) && (value >= 0U) && (value <= 6U)) { id(esp32cam01_id).set_agc_gain_ceiling((esphome::esp32_camera::ESP32AgcGainCeiling)value); state_return = true; }
+          if (("wb_mode" == name) && (value >= 0U) && (value <= 4U)) { id(esp32cam01_id).set_wb_mode((esphome::esp32_camera::ESP32WhiteBalanceMode)value); state_return = true; }
+          if (("test_pattern" == name) && (value >= 0U) && (value <= 1U)) { id(esp32cam01_id).set_test_pattern(value); state_return = true; }
+          if (true == state_return) {
+            id(esp32cam01_id).update_camera_parameters();
+          }
+          else {
+            ESP_LOGW("esp32_camera_set_param", "Error in name or data range");
+          }
+
+
+# Allow Over-The-Air updates
+ota:
+  password: !secret esp32cam01_ota_password
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  # Set up a wifi access point
+  ap:
+    ssid: "ESP32CAM01 Fallback AP"
+    password: !secret esp32cam01_fap_password
+
+http_request:
+  useragent: esphome/device
+  timeout: 10s
+
+# configure esp32 camera
+esp32_camera:
+  external_clock:
+    pin: GPIO0
+    frequency: 20MHz
+  i2c_pins:
+    sda: GPIO26
+    scl: GPIO27
+  data_pins: [GPIO5, GPIO18, GPIO19, GPIO21, GPIO36, GPIO39, GPIO34, GPIO35]
+  vsync_pin: GPIO25
+  href_pin: GPIO23
+  pixel_clock_pin: GPIO22
+  power_down_pin: GPIO32
+  name: esp32cam01
+  id: esp32cam01_id
+  max_framerate: 25 fps    # default: 10 fps, max 60
+  idle_framerate: 0.2 fps # default: 0.1 fps - framerate for 'picture' in HA dashboard
+  resolution: 1024X768
+  jpeg_quality: 10
+  vertical_flip: false
+  horizontal_mirror: false
+  contrast: 1 # default: 0, variable -2 to 2
+  brightness: 2 # default: 0, variable -2 to 2
+  saturation: 0 # default: 0, variable -2 to 2
+  special_effect: none
+  # exposure settings
+  aec_mode: auto
+  aec2: false
+  ae_level: 0
+  aec_value: 300
+  # gain settings
+  agc_mode: auto
+  agc_gain_ceiling: 2x
+  agc_value: 0
+  # white balance setting
+  wb_mode: auto
+
+# add webserver for steraming and snapshots
+esp32_camera_web_server:
+  - port: 8080
+    mode: stream
+  - port: 8081
+    mode: snapshot 
+
+time:
+  - platform: homeassistant
+    id: homeassistant_time
+
+# lights 
+output:
+#flash
+  - platform: ledc
+    channel: 2
+    pin: GPIO4
+    id: gpio_4
+#wifi light
+  - platform: gpio
+    pin:
+      number: GPIO33
+      inverted: True
+    id: gpio_33
+
+light:
+#flashlight
+  - platform: monochromatic
+    output: gpio_4
+    name: $friendly_name light
+#statuslight led 33 for wifi connect
+  - platform: binary
+    output: gpio_33
+    name: $friendly_name wifi led
+
+switch:      
+  - platform: restart
+    name: $friendly_name restart
+
+binary_sensor:
+  - platform: status
+    name: $friendly_name status
 
